@@ -1,0 +1,103 @@
+# aws cli: aws cloudformation create-stack --stack-name demo-service --template-body file://demo-service.yaml --capabilities CAPABILITY_NAMED_IAM --parameters file://demo-service-parameters.json
+#
+AWSTemplateFormatVersion: 2010-09-09
+Parameters:
+  ImageTag:
+    Type: String
+    Description: The tag of the Docker Image
+  EcsStackName:
+    Type: String
+    Description: The name of the CloudFormation stack which contains the ECS cluster
+    Default: demo-ecs-primary
+  VpcStackName:
+    Type: String
+    Default: infrastructure-vpc
+  DesiredCount:
+    Type: String
+    Description: The number of containers to run
+  ApplicationName:
+    Type: String
+    Description: The name of the application
+    Default: demo-test
+  ImageRegistryPath:
+    Type: String
+    Description: This is the ECR URI
+  Port:
+    Type: String
+    Description: The port the application listens on
+    Default: '80'
+Resources:
+  EcsService:
+    Type: 'AWS::ECS::Service'
+    Properties:
+      Cluster: {'Fn::ImportValue': !Sub '${EcsStackName}-EcsClusterName'}
+      DeploymentConfiguration:
+        MaximumPercent: 200
+        MinimumHealthyPercent: 50
+      DesiredCount: !Ref DesiredCount
+      LaunchType: FARGATE
+      LoadBalancers:
+        - ContainerName: !Ref ApplicationName
+          ContainerPort: !Ref Port
+          TargetGroupArn: {'Fn::ImportValue': !Sub '${EcsStackName}-DefaultTargetGroupArn'}
+      NetworkConfiguration:
+        AwsvpcConfiguration:
+          SecurityGroups:
+            - !Ref ServiceSecurityGroup
+          Subnets:
+            - {'Fn::ImportValue': !Sub '${VpcStackName}-PrivateSubnet1'}
+            - {'Fn::ImportValue': !Sub '${VpcStackName}-PrivateSubnet2'}
+            - {'Fn::ImportValue': !Sub '${VpcStackName}-PrivateSubnet3'}
+      ServiceName: !Ref ApplicationName
+      TaskDefinition: !Ref EcsTaskDefinition
+      HealthCheckGracePeriodSeconds: 1200
+    DependsOn:
+      - EcsTaskDefinition
+      - ServiceSecurityGroup
+      - TaskExecutionRole
+  EcsTaskDefinition:
+    Type: 'AWS::ECS::TaskDefinition'
+    Properties:
+      Family: {'Fn::ImportValue': !Sub '${EcsStackName}-EcsClusterName'}
+      NetworkMode: awsvpc
+      RequiresCompatibilities: [FARGATE]
+      Memory: 512
+      Cpu: 256
+      ExecutionRoleArn: !GetAtt 'TaskExecutionRole.Arn'
+      ContainerDefinitions:
+        -  Essential: true
+           Image: !Sub ${ImageRegistryPath}:${ImageTag}
+           Name: !Ref ApplicationName
+           PortMappings:
+             - ContainerPort: !Ref Port
+               Protocol: tcp
+           LogConfiguration:
+               LogDriver: awslogs
+               Options:
+                 'awslogs-region': !Ref 'AWS::Region'
+                 'awslogs-group': !Ref LogGroup
+                 'awslogs-stream-prefix': app
+  LogGroup:
+    Type: 'AWS::Logs::LogGroup'
+    Properties:
+      RetentionInDays: 1
+  TaskExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+        - Effect: Allow
+          Principal:
+            Service: [ecs-tasks.amazonaws.com]
+          Action: ['sts:AssumeRole']
+      Path: /
+      ManagedPolicyArns:
+        - "arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy"
+  ServiceSecurityGroup:
+    Type: 'AWS::EC2::SecurityGroup'
+    Properties:
+      GroupDescription: test
+      VpcId: {'Fn::ImportValue': !Sub '${VpcStackName}-VPC'}
+      SecurityGroupIngress:
+      - IpProtocol: -1
+        SourceSecurityGroupId: {'Fn::ImportValue': !Sub '${EcsStackName}-EcsAlbSecurityGroup'}

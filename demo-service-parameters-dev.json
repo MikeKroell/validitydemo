@@ -1,0 +1,14 @@
+[
+  {
+    "ParameterKey": "DesiredCount",
+    "ParameterValue": "3"
+  },
+  {
+    "ParameterKey": "ImageTag",
+    "ParameterValue": "latest"
+  },
+  {
+    "ParameterKey": "ImageRegistryPath",
+    "ParameterValue": "687697781762.dkr.ecr.us-east-1.amazonaws.com/demo"
+  }
+]

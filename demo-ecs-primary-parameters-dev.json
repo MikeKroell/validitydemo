@@ -1,0 +1,14 @@
+[
+  {
+    "ParameterKey": "ClusterName",
+    "ParameterValue": "Demo-Primary"
+  },
+  {
+    "ParameterKey": "CertificateArn",
+    "ParameterValue": "arn:aws:acm:us-east-1:687697781762:certificate/c4dd4ea0-cff7-4e28-9023-5b848546f8ec"
+  },
+  {
+    "ParameterKey": "Environment",
+    "ParameterValue": "Development"
+  }
+]

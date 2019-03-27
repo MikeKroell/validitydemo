@@ -1,0 +1,133 @@
+# aws cli: aws cloudformation create-stack --stack-name demo-ecr --template-body file://ecr.yaml --parameters file://demo-ecr-parameters.json
+#
+
+Parameters:
+  RepositoryName:
+    Type: String
+    Description: Name of the Repository
+  CrossAccountAccess:
+    Type: String
+    Description: Whether cross account access should be enabled
+    Default: Enabled
+    AllowedValues:
+      - Enabled
+      - Disabled
+    ConstraintDescription: must specify Enabled or Disabled
+Conditions:
+  EnableCrossAccountAccess: !Equals [!Ref CrossAccountAccess, "Enabled"]
+Resources:
+  Repository:
+    Type: "AWS::ECR::Repository"
+    Properties:
+      RepositoryName: !Ref RepositoryName
+      #RepositoryPolicyText:
+      #  !If
+      #    - EnableCrossAccountAccess
+      #    - Version: "2012-10-17"
+      #      Statement:
+      #        - Sid: Account Access
+      #          Effect: Allow
+      #          Principal:
+      #            AWS:
+      #              - "arn:aws:iam::000000000000:root"
+      #          Action:
+      #            - "ecr:GetDownloadUrlForLayer"
+      #            - "ecr:BatchGetImage"
+      #            - "ecr:BatchCheckLayerAvailability"
+      #    - !Ref "AWS::NoValue"
+      LifecyclePolicy:
+        LifecyclePolicyText: |-
+          {
+            "rules": [
+              {
+                "rulePriority": 10,
+                "description": "Keep the single most recent image tagged as “latest”",
+                "selection": {
+                  "tagStatus": "tagged",
+                  "tagPrefixList": [
+                    "latest"
+                  ],
+                  "countType": "imageCountMoreThan",
+                  "countNumber": 1
+                },
+                "action": {
+                  "type": "expire"
+                }
+              },
+              {
+                "rulePriority": 20,
+                "description": "Keep the 100 most recent images tagged as “current”",
+                "selection": {
+                  "tagStatus": "tagged",
+                  "tagPrefixList": [
+                    "current"
+                  ],
+                  "countType": "imageCountMoreThan",
+                  "countNumber": 100
+                },
+                "action": {
+                  "type": "expire"
+                }
+              },
+              {
+                "rulePriority": 30,
+                "description": "Keep the 100 most recent images tagged as “previous”",
+                "selection": {
+                  "tagStatus": "tagged",
+                  "tagPrefixList": [
+                    "previous"
+                  ],
+                  "countType": "imageCountMoreThan",
+                  "countNumber": 100
+                },
+                "action": {
+                  "type": "expire"
+                }
+              },
+              {
+                "rulePriority": 40,
+                "description": "Expire images tagged as \"master\" older than 180 days",
+                "selection": {
+                  "tagStatus": "tagged",
+                  "tagPrefixList": [
+                    "master"
+                  ],
+                  "countType": "sinceImagePushed",
+                  "countUnit": "days",
+                  "countNumber": 180
+                },
+                "action": {
+                  "type": "expire"
+                }
+              },
+              {
+                "rulePriority": 50,
+                "description": "Expire images tagged as “branch” older than 30 days",
+                "selection": {
+                  "tagStatus": "tagged",
+                  "tagPrefixList": [
+                    "branch"
+                  ],
+                  "countType": "sinceImagePushed",
+                  "countUnit": "days",
+                  "countNumber": 30
+                },
+                "action": {
+                  "type": "expire"
+                }
+              },
+              {
+                "rulePriority": 60,
+                "description": "Expire untagged images older than one day",
+                "selection": {
+                  "tagStatus": "untagged",
+                  "countType": "sinceImagePushed",
+                  "countUnit": "days",
+                  "countNumber": 1
+                },
+                "action": {
+                  "type": "expire"
+                }
+              }
+            ]
+          }

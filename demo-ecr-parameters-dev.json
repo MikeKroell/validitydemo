@@ -1,0 +1,10 @@
+[
+  {
+    "ParameterKey": "CrossAccountAccess",
+    "ParameterValue": "Enabled"
+  },
+  {
+    "ParameterKey": "RepositoryName",
+    "ParameterValue": "demo"
+  }
+]
